@@ -31,7 +31,5 @@ async fn main() {
     info!("Research kernel listening on http://127.0.0.1:3000");
     info!("WebSocket endpoint: ws://127.0.0.1:3000/ws");
 
-    axum::serve(listener, app)
-        .await
-        .expect("Server failed");
+    axum::serve(listener, app).await.expect("Server failed");
 }

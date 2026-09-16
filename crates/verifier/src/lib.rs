@@ -1,7 +1,7 @@
+use rand::Rng;
 use serde::{Deserialize, Serialize};
 use std::time::Instant;
 use thiserror::Error;
-use rand::Rng;
 
 #[derive(Error, Debug)]
 pub enum VerificationError {
@@ -15,10 +15,10 @@ pub enum VerificationError {
 
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
 pub enum VerificationResult {
-    Proved,           // Claim is valid (unsat negation)
-    Counterexample,   // Claim is false (sat found)
-    Unknown,          // Could not determine
-    Timeout,          // Exceeded time limit
+    Proved,         // Claim is valid (unsat negation)
+    Counterexample, // Claim is false (sat found)
+    Unknown,        // Could not determine
+    Timeout,        // Exceeded time limit
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -133,10 +133,7 @@ mod tests {
 
     #[test]
     fn test_verification_result_proved() {
-        assert_eq!(
-            VerificationResult::Proved,
-            VerificationResult::Proved
-        );
+        assert_eq!(VerificationResult::Proved, VerificationResult::Proved);
     }
 
     #[test]

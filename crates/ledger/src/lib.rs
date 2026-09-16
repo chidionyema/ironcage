@@ -35,7 +35,12 @@ impl LedgerEntry {
     }
 
     pub fn verify_hash(&self) -> bool {
-        let computed = Self::compute_hash(&self.prev_hash, &self.event_type, &self.payload, self.timestamp);
+        let computed = Self::compute_hash(
+            &self.prev_hash,
+            &self.event_type,
+            &self.payload,
+            self.timestamp,
+        );
         computed == self.hash
     }
 }
@@ -86,11 +91,7 @@ impl Ledger {
         Ok(Self { conn })
     }
 
-    pub fn append(
-        &self,
-        event_type: String,
-        payload: String,
-    ) -> Result<LedgerEntry, LedgerError> {
+    pub fn append(&self, event_type: String, payload: String) -> Result<LedgerEntry, LedgerError> {
         let timestamp = SystemTime::now()
             .duration_since(UNIX_EPOCH)
             .unwrap()
@@ -172,15 +173,17 @@ impl Ledger {
             let entry = entry_result?;
 
             if entry.prev_hash != prev_hash {
-                return Err(LedgerError::VerificationFailed(
-                    format!("Entry {} has invalid prev_hash", entry.id),
-                ));
+                return Err(LedgerError::VerificationFailed(format!(
+                    "Entry {} has invalid prev_hash",
+                    entry.id
+                )));
             }
 
             if !entry.verify_hash() {
-                return Err(LedgerError::VerificationFailed(
-                    format!("Entry {} hash mismatch", entry.id),
-                ));
+                return Err(LedgerError::VerificationFailed(format!(
+                    "Entry {} hash mismatch",
+                    entry.id
+                )));
             }
 
             prev_hash = entry.hash;

@@ -36,20 +36,26 @@ impl ApiServer {
 
         Router::new()
             .route("/", get(move || serve_ui()))
-            .route("/ws", get(move |ws: WebSocketUpgrade| {
-                let api = api_clone.clone();
-                async move { ws.on_upgrade(move |socket| handle_ws(socket, api)) }
-            }))
+            .route(
+                "/ws",
+                get(move |ws: WebSocketUpgrade| {
+                    let api = api_clone.clone();
+                    async move { ws.on_upgrade(move |socket| handle_ws(socket, api)) }
+                }),
+            )
             .route("/health", get(|| async { "ok" }))
-            .route("/metrics", get(move || {
-                let _api = api_clone2.clone();
-                async move {
-                    format!(
-                        "# Ironcage Metrics\n\
+            .route(
+                "/metrics",
+                get(move || {
+                    let _api = api_clone2.clone();
+                    async move {
+                        format!(
+                            "# Ironcage Metrics\n\
                          ironcage_api_version{{}} 1\n"
-                    )
-                }
-            }))
+                        )
+                    }
+                }),
+            )
             .layer(CorsLayer::permissive())
     }
 
