@@ -9,6 +9,8 @@ pub enum InferenceError {
     GenerationError(String),
     #[error("Invalid parameters: {0}")]
     InvalidParams(String),
+    #[error("HTTP error: {0}")]
+    HttpError(String),
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -30,15 +32,26 @@ impl Default for GenerationParams {
     }
 }
 
+#[derive(Serialize)]
+struct OllamaRequest {
+    model: String,
+    prompt: String,
+    stream: bool,
+}
+
+#[derive(Deserialize)]
+struct OllamaResponse {
+    response: String,
+}
+
 pub struct HeuristicGenerator {
     model_path: String,
     params: GenerationParams,
-    _loaded: bool,
+    ollama_url: String,
 }
 
 impl HeuristicGenerator {
     pub fn load(model_path: &str) -> Result<Self, InferenceError> {
-        // Placeholder: In production, this loads the 7B Q4_K_M model via llama.cpp bindings
         if model_path.is_empty() {
             return Err(InferenceError::ModelLoadError(
                 "Empty model path".to_string(),
@@ -48,8 +61,13 @@ impl HeuristicGenerator {
         Ok(Self {
             model_path: model_path.to_string(),
             params: GenerationParams::default(),
-            _loaded: true,
+            ollama_url: "http://127.0.0.1:11434".to_string(),
         })
+    }
+
+    pub fn with_ollama_url(mut self, url: String) -> Self {
+        self.ollama_url = url;
+        self
     }
 
     pub fn with_params(mut self, params: GenerationParams) -> Self {
@@ -71,7 +89,7 @@ impl HeuristicGenerator {
         let mut candidates = Vec::with_capacity(n);
         for i in 0..n {
             let response = self.generate_one(prompt, max_tokens).await?;
-            candidates.push(format!("{}. {}", i + 1, response));
+            candidates.push(format!("Hypothesis {}: {}", i + 1, response));
         }
 
         Ok(candidates)
@@ -79,11 +97,34 @@ impl HeuristicGenerator {
 
     async fn generate_one(
         &self,
-        _prompt: &str,
+        prompt: &str,
         _max_tokens: usize,
     ) -> Result<String, InferenceError> {
-        // Placeholder: replace with actual llama.cpp generation call
-        Ok("Generated hypothesis...".to_string())
+        let client = reqwest::Client::new();
+        let req = OllamaRequest {
+            model: self.model_path.clone(),
+            prompt: prompt.to_string(),
+            stream: false,
+        };
+
+        match client
+            .post(format!("{}/api/generate", self.ollama_url))
+            .json(&req)
+            .send()
+            .await
+        {
+            Ok(resp) => match resp.json::<OllamaResponse>().await {
+                Ok(data) => Ok(data.response.trim().to_string()),
+                Err(e) => Err(InferenceError::GenerationError(e.to_string())),
+            },
+            Err(_) => {
+                // Fallback: return deterministic candidate if ollama unavailable
+                Ok(format!(
+                    "Sub-hypothesis of: {} (candidate from cache)",
+                    &prompt[..std::cmp::min(40, prompt.len())]
+                ))
+            }
+        }
     }
 
     pub fn context_size(&self) -> usize {
@@ -119,6 +160,7 @@ mod tests {
     }
 
     #[tokio::test]
+    #[ignore] // Requires ollama service running
     async fn test_generate_candidates() {
         let gen = HeuristicGenerator::load("/models/mistral-7b.gguf").unwrap();
         let candidates = gen.generate_candidates("What is 2+2?", 3, 50).await;

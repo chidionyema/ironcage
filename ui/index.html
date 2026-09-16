@@ -1,0 +1,254 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ironcage Research Kernel</title>
+    <script src="https://cdn.jsdelivr.net/npm/three@r128/build/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/vis-network@9.1.9/standalone/umd/vis-network.min.js"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #0f1419; color: #e0e0e0; }
+        .container { display: flex; height: 100vh; }
+        .graph-panel { flex: 1; position: relative; background: #1a1f2e; border-right: 1px solid #333; }
+        .sidebar { width: 350px; background: #151a26; border-left: 1px solid #333; display: flex; flex-direction: column; overflow-y: auto; }
+        .header { padding: 20px; border-bottom: 1px solid #333; }
+        .header h1 { font-size: 18px; margin-bottom: 5px; }
+        .header p { font-size: 12px; color: #888; }
+        .stats { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 15px; }
+        .stat { background: #1f2632; padding: 10px; border-radius: 4px; }
+        .stat-label { font-size: 11px; color: #888; }
+        .stat-value { font-size: 18px; font-weight: bold; color: #4af; margin-top: 5px; }
+        #network { width: 100%; height: 100%; }
+        .node-detail { padding: 20px; border-bottom: 1px solid #333; }
+        .node-detail h3 { margin-bottom: 10px; font-size: 14px; }
+        .node-detail p { font-size: 12px; color: #aaa; margin: 5px 0; word-break: break-all; }
+        .node-detail .verified { color: #4af; }
+        .node-detail .unverified { color: #f84; }
+        .log { flex: 1; overflow-y: auto; padding: 15px; font-family: 'Monaco', monospace; font-size: 11px; }
+        .log-line { margin: 3px 0; padding: 3px 5px; background: #0f1419; border-left: 3px solid #333; }
+        .log-line.delta { border-left-color: #4af; }
+        .controls { padding: 15px; border-top: 1px solid #333; display: flex; gap: 10px; }
+        button { padding: 8px 15px; background: #2a3f5f; border: 1px solid #4af; color: #4af; border-radius: 4px; cursor: pointer; font-size: 12px; }
+        button:hover { background: #3a4f6f; }
+        .connection-status { padding: 10px 20px; font-size: 11px; display: flex; align-items: center; gap: 8px; }
+        .status-dot { width: 8px; height: 8px; border-radius: 50%; }
+        .status-dot.connected { background: #4af; }
+        .status-dot.disconnected { background: #f84; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="graph-panel">
+            <div id="network"></div>
+        </div>
+        <div class="sidebar">
+            <div class="header">
+                <h1>🔬 Ironcage Kernel</h1>
+                <p>Provable Research Engine</p>
+                <div class="stats">
+                    <div class="stat">
+                        <div class="stat-label">Nodes</div>
+                        <div class="stat-value" id="node-count">0</div>
+                    </div>
+                    <div class="stat">
+                        <div class="stat-label">Verified</div>
+                        <div class="stat-value" id="verified-count">0</div>
+                    </div>
+                </div>
+            </div>
+            <div class="connection-status">
+                <div class="status-dot" id="status-dot"></div>
+                <span id="status-text">Disconnected</span>
+            </div>
+            <div class="node-detail" id="node-detail" style="display: none;">
+                <h3 id="node-id"></h3>
+                <p><strong>Claim:</strong></p>
+                <p id="node-claim"></p>
+                <p><strong>Visits:</strong> <span id="node-visits">0</span></p>
+                <p><strong>Reward:</strong> <span id="node-reward">0.00</span></p>
+                <p id="node-verified-status"></p>
+            </div>
+            <div class="log" id="log"></div>
+            <div class="controls">
+                <button onclick="expandTree()">Expand</button>
+                <button onclick="resetView()">Reset</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const nodes = new Map();
+        const edges = new Set();
+        let visNetwork = null;
+        let selectedNodeId = null;
+
+        const nodeCount = document.getElementById('node-count');
+        const verifiedCount = document.getElementById('verified-count');
+        const statusDot = document.getElementById('status-dot');
+        const statusText = document.getElementById('status-text');
+        const log = document.getElementById('log');
+
+        function addLog(msg, type = 'info') {
+            const line = document.createElement('div');
+            line.className = `log-line ${type}`;
+            line.textContent = new Date().toLocaleTimeString() + ': ' + msg;
+            log.appendChild(line);
+            log.scrollTop = log.scrollHeight;
+            if (log.children.length > 100) {
+                log.removeChild(log.firstChild);
+            }
+        }
+
+        function initNetwork() {
+            const container = document.getElementById('network');
+            const data = {
+                nodes: new vis.DataSet(Array.from(nodes.values())),
+                edges: new vis.DataSet(Array.from(edges)),
+            };
+            const options = {
+                physics: { enabled: true, barnesHut: { gravitationalConstant: -8000 } },
+                nodes: {
+                    shape: 'dot',
+                    font: { size: 12, color: '#e0e0e0' },
+                    shadow: true,
+                },
+                edges: {
+                    arrows: 'to',
+                    smooth: { type: 'continuous' },
+                    color: { color: '#444', highlight: '#4af' },
+                    font: { size: 10, color: '#888' },
+                },
+            };
+            visNetwork = new vis.Network(container, data, options);
+            visNetwork.on('click', (params) => {
+                if (params.nodes.length > 0) {
+                    selectedNodeId = params.nodes[0];
+                    showNodeDetail(selectedNodeId);
+                }
+            });
+        }
+
+        function addNode(id, label, verified = false) {
+            if (!nodes.has(id)) {
+                nodes.set(id, {
+                    id: id,
+                    label: label.substring(0, 40) + (label.length > 40 ? '...' : ''),
+                    color: verified ? '#4af' : '#f84',
+                    title: label,
+                    metadata: { verified, claim: label },
+                });
+                nodeCount.textContent = nodes.size;
+                if (verified) {
+                    verifiedCount.textContent = parseInt(verifiedCount.textContent) + 1;
+                }
+                if (visNetwork) {
+                    visNetwork.body.data.nodes.add(nodes.get(id));
+                }
+            }
+        }
+
+        function addEdge(from, to) {
+            const edgeId = `${from}-${to}`;
+            if (!edges.has(edgeId)) {
+                edges.add(edgeId);
+                if (visNetwork) {
+                    visNetwork.body.data.edges.add({ from, to, arrows: 'to' });
+                }
+            }
+        }
+
+        function showNodeDetail(nodeId) {
+            const node = nodes.get(nodeId);
+            if (node) {
+                document.getElementById('node-detail').style.display = 'block';
+                document.getElementById('node-id').textContent = nodeId.substring(0, 12) + '...';
+                document.getElementById('node-claim').textContent = node.metadata.claim;
+                document.getElementById('node-visits').textContent = '0';
+                document.getElementById('node-reward').textContent = '0.00';
+                document.getElementById('node-verified-status').innerHTML = node.metadata.verified
+                    ? '<span class="verified">✓ Verified</span>'
+                    : '<span class="unverified">⚠ Unverified</span>';
+            }
+        }
+
+        function expandTree() {
+            addLog('Expanding MCTS tree...', 'delta');
+            // Simulate expansion
+            const rootId = 'root-' + Date.now();
+            addNode(rootId, 'Riemann Hypothesis', false);
+            for (let i = 0; i < 3; i++) {
+                const childId = 'node-' + Date.now() + '-' + i;
+                const verified = Math.random() > 0.5;
+                addNode(childId, `Sub-hypothesis ${i + 1}`, verified);
+                addEdge(rootId, childId);
+            }
+            addLog(`Added 4 nodes to tree`, 'delta');
+        }
+
+        function resetView() {
+            nodes.clear();
+            edges.clear();
+            nodeCount.textContent = '0';
+            verifiedCount.textContent = '0';
+            selectedNodeId = null;
+            document.getElementById('node-detail').style.display = 'none';
+            if (visNetwork) {
+                visNetwork.body.data.nodes.clear();
+                visNetwork.body.data.edges.clear();
+            }
+            addLog('View reset', 'info');
+        }
+
+        function connectWebSocket() {
+            const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+            const ws = new WebSocket(`${protocol}//${window.location.host}/ws`);
+
+            ws.onopen = () => {
+                statusDot.className = 'status-dot connected';
+                statusText.textContent = 'Connected';
+                addLog('WebSocket connected', 'info');
+            };
+
+            ws.onmessage = (event) => {
+                try {
+                    const delta = JSON.parse(event.data);
+                    addLog(`Node ${delta.node_id.substring(0, 12)}: visits=${delta.visits}, reward=${delta.reward.toFixed(2)}`, 'delta');
+                    addNode(delta.node_id, `Node ${delta.node_id.substring(0, 8)}`, delta.verified);
+                    if (selectedNodeId === delta.node_id) {
+                        showNodeDetail(delta.node_id);
+                    }
+                } catch (e) {
+                    addLog(`Parse error: ${e.message}`, 'error');
+                }
+            };
+
+            ws.onerror = (error) => {
+                statusDot.className = 'status-dot disconnected';
+                statusText.textContent = 'Connection Error';
+                addLog(`Error: ${error}`, 'error');
+            };
+
+            ws.onclose = () => {
+                statusDot.className = 'status-dot disconnected';
+                statusText.textContent = 'Disconnected';
+                addLog('WebSocket closed. Reconnecting...', 'info');
+                setTimeout(connectWebSocket, 3000);
+            };
+        }
+
+        window.addEventListener('load', () => {
+            initNetwork();
+            connectWebSocket();
+            addLog('Ironcage Kernel UI loaded', 'info');
+            // Simulate initial graph
+            setTimeout(expandTree, 500);
+        });
+
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'e') expandTree();
+            if (e.key === 'r') resetView();
+        });
+    </script>
+</body>
+</html>

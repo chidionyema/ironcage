@@ -10,6 +10,4 @@ serde_json = { workspace = true }
 thiserror = { workspace = true }
 anyhow = { workspace = true }
 tracing = { workspace = true }
-
-# Z3 bindings: using z3-rust or direct FFI
-# Placeholder for MCP server integration
+rand = "0.8"

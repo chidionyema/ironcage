@@ -10,6 +10,5 @@ thiserror = { workspace = true }
 anyhow = { workspace = true }
 tokio = { workspace = true }
 tracing = { workspace = true }
-
-# llama.cpp bindings: using llama-crab or direct C bindings
-# Placeholder for now; swap with actual llama-cpp-rs when available
+reqwest = { workspace = true }
+uuid = { workspace = true }

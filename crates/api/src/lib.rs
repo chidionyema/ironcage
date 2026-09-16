@@ -1,11 +1,15 @@
 use axum::{
+    body::Body,
     extract::ws::{Message, WebSocket, WebSocketUpgrade},
+    http::StatusCode,
+    response::Response,
     routing::get,
     Router,
 };
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 use tokio::sync::broadcast;
+use tower_http::cors::CorsLayer;
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct NodeDelta {
@@ -27,23 +31,48 @@ impl ApiServer {
 
     pub fn router(self) -> Router {
         let api = Arc::new(self);
+        let api_clone = api.clone();
+        let api_clone2 = api.clone();
 
         Router::new()
+            .route("/", get(move || serve_ui()))
             .route("/ws", get(move |ws: WebSocketUpgrade| {
-                let api = api.clone();
+                let api = api_clone.clone();
                 async move { ws.on_upgrade(move |socket| handle_ws(socket, api)) }
             }))
             .route("/health", get(|| async { "ok" }))
-            .route("/metrics", get(|| async { "metrics placeholder" }))
+            .route("/metrics", get(move || {
+                let _api = api_clone2.clone();
+                async move {
+                    format!(
+                        "# Ironcage Metrics\n\
+                         ironcage_api_version{{}} 1\n"
+                    )
+                }
+            }))
+            .layer(CorsLayer::permissive())
     }
 
     pub fn broadcast_delta(&self, delta: NodeDelta) {
         let _ = self.tx.send(delta);
     }
+
+    pub fn tx(&self) -> &broadcast::Sender<NodeDelta> {
+        &self.tx
+    }
+}
+
+async fn serve_ui() -> Result<Response, StatusCode> {
+    let html = include_str!("../../../ui/index.html");
+    Ok(Response::builder()
+        .status(StatusCode::OK)
+        .header("Content-Type", "text/html")
+        .body(Body::from(html))
+        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?)
 }
 
 async fn handle_ws(mut socket: WebSocket, api: Arc<ApiServer>) {
-    let mut rx = api.tx.subscribe();
+    let mut rx = api.tx().subscribe();
 
     loop {
         tokio::select! {
