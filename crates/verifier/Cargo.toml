@@ -1,0 +1,15 @@
+[package]
+name = "ironcage-verifier"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+tokio = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+anyhow = { workspace = true }
+tracing = { workspace = true }
+
+# Z3 bindings: using z3-rust or direct FFI
+# Placeholder for MCP server integration

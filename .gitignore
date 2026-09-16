@@ -1,0 +1,14 @@
+/target
+/Cargo.lock
+*.db
+*.db-shm
+*.db-wal
+.DS_Store
+*.swp
+*.swo
+*~
+.vscode/
+.idea/
+*.iml
+.env
+.env.local
