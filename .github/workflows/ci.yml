@@ -41,6 +41,8 @@ jobs:
   publish:
     needs: build
     runs-on: ubuntu-latest
+    permissions:
+      packages: write
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
@@ -49,18 +51,18 @@ jobs:
         run: cargo build --release
       - name: Build OCI images
         run: |
-          docker build -t ironcage-kernel:v0.1.0 -f Dockerfile.kernel .
-          docker build -t ironcage-api:v0.1.0 -f Dockerfile.api .
+          docker build -t ghcr.io/chidionyema/ironcage-kernel:${{ github.sha }} -f Dockerfile.kernel .
+          docker build -t ghcr.io/chidionyema/ironcage-api:${{ github.sha }} -f Dockerfile.api .
           docker images | grep ironcage
-      - name: Login to Docker Hub
+      - name: Login to GHCR
         uses: docker/login-action@v3
         with:
-          username: chidionyema
-          password: ${{ secrets.DOCKERHUB_TOKEN }}
-      - name: Push images to Docker Hub
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Push to GHCR
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         run: |
-          docker tag ironcage-kernel:v0.1.0 docker.io/chidionyema/ironcage-kernel:v0.1.0
-          docker tag ironcage-api:v0.1.0 docker.io/chidionyema/ironcage-api:v0.1.0
-          docker push docker.io/chidionyema/ironcage-kernel:v0.1.0
-          docker push docker.io/chidionyema/ironcage-api:v0.1.0
-          echo "✅ Images pushed to docker.io"
+          docker push ghcr.io/chidionyema/ironcage-kernel:${{ github.sha }}
+          docker push ghcr.io/chidionyema/ironcage-api:${{ github.sha }}
+          echo "✅ Images pushed to ghcr.io with sha: ${{ github.sha }}"
