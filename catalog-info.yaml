@@ -1,34 +1,37 @@
 apiVersion: backstage.io/v1alpha1
 kind: Component
 metadata:
-  name: ironcage-kernel
-  title: Ironcage Research Kernel
-  description: Provable research engine with MCTS + formal verification
+  name: ironcage-research
+  description: Production research kernel with MCTS, formal verification, and tamper-evident ledger
+  links:
+    - url: https://github.com/chidionyema/ironcage
+      title: Repository
+      icon: github
+    - url: http://localhost:3001
+      title: Research UI
+      icon: dashboard
   tags:
-    - rust
     - research
-    - kernel
     - mcts
+    - formal-verification
+    - kubernetes
 spec:
-  type: service
-  lifecycle: production
+  type: backend
   owner: research-team
-  system: sovereign
+  lifecycle: production
+  system: research-platform
+  providesApis:
+    - ironcage-research-api
+  deployment:
+    production: http://localhost:3001
+
 ---
 apiVersion: backstage.io/v1alpha1
-kind: Component
+kind: API
 metadata:
-  name: ironcage-api
-  title: Ironcage API
-  description: WebSocket API server for graph streaming
-  tags:
-    - rust
-    - axum
-    - websocket
+  name: ironcage-research-api
+  description: Research claim submission and execution
 spec:
-  type: service
+  type: rest
   lifecycle: production
   owner: research-team
-  system: sovereign
-  dependsOn:
-    - component:ironcage-kernel
