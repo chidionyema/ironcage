@@ -260,6 +260,27 @@ Persistent Volumes:
 3. Deploy: K3s via Flux reconciliation
 4. Verify: `kubectl get pods -n ironcage` → Ready status
 
+## Getting Started
+
+**Deploy Ironcage to K8s:**
+
+```bash
+# 1. Download OCI images from CI artifacts
+./bin/deploy-images.sh
+
+# 2. Push to Docker Hub (or configure K8s image pull credentials)
+docker tag ironcage-kernel:v0.1.0 YOUR_DOCKERHUB_USER/ironcage-kernel:v0.1.0
+docker push YOUR_DOCKERHUB_USER/ironcage-kernel:v0.1.0
+docker tag ironcage-api:v0.1.0 YOUR_DOCKERHUB_USER/ironcage-api:v0.1.0
+docker push YOUR_DOCKERHUB_USER/ironcage-api:v0.1.0
+
+# 3. Update k8s/deployment.yaml image references and deploy
+kubectl apply -f k8s/deployment.yaml
+
+# 4. Verify pods are running
+kubectl get pods -n ironcage
+```
+
 ## Research Workflow
 
 **Start research session:**
