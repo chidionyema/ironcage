@@ -1,0 +1,16 @@
+FROM rust:latest as builder
+WORKDIR /build
+COPY . .
+RUN cargo build --release
+
+FROM debian:bookworm-slim
+RUN apt-get update && apt-get install -y libssl3 ca-certificates && rm -rf /var/lib/apt/lists/*
+WORKDIR /app
+
+# Copy API binary from builder
+COPY --from=builder /build/target/release/ironcage-api /app/
+
+EXPOSE 3001
+
+USER 65532:65532
+ENTRYPOINT ["/app/ironcage-api"]

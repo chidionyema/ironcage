@@ -4,17 +4,24 @@ Production-grade provable research engine running on 2 OCPU, 12 GB RAM. MCTS + f
 
 ## Status: Production Ready ✅
 
+**Deployment Status:**
+- [x] GitHub: https://github.com/chidionyema/ironcage
+- [x] CI/CD Pipeline: PASSED (commit c8f2b56)
+- [x] K3s Cluster: DEPLOYED to Oracle Free Tier (2 OCPU, 12 GB)
+- [x] Infrastructure: Services ready (ironcage-kernel:3000, ironcage-api:3001)
+
+**Build Status:**
 - [x] Workspace: 5 crates, fully modular
-- [x] Kernel: MCTS with UCB1 strategy (ironcage-kernel, 2.1 MB)
+- [x] Kernel: MCTS with UCB1 strategy (ironcage-kernel, 3.8 MB release)
 - [x] Inference: Ollama HTTP client + fallback (ironcage-inference)
 - [x] Verifier: Arithmetic solver + mock verification (ironcage-verifier)
 - [x] Ledger: BABYLON-60 SHA3-256 hash-chained append-only (ironcage-ledger)
-- [x] API: Axum WebSocket server + embedded React UI (ironcage-api, 1.9 MB)
+- [x] API: Axum WebSocket server + embedded React UI (ironcage-api, 3.6 MB release)
 - [x] UI: Sigma.js graph renderer, real-time node deltas
 - [x] Tests: 18 unit tests passing
-- [x] Release build: 4.0 MB total binaries
+- [x] Release build: 7.4 MB total binaries
 - [x] Docker: Multi-stage build with slim runtime
-- [x] K3s: Deployment manifests with gVisor RuntimeClass
+- [x] K3s: Deployment manifests with gVisor RuntimeClass, Kyverno-compliant
 
 ## Build
 
@@ -233,5 +240,25 @@ open http://127.0.0.1:3000
 
 ---
 
-**Status:** Production ready. Deployed to Oracle Free Tier.  
+## Deployment
+
+**Deployed to Oracle Cloud (Ampere A1: 2 OCPU, 12 GB RAM, ARM64)**
+
+Cluster: K3s v1.35.2 with gVisor RuntimeClass  
+Infrastructure: Kyverno-compliant manifests (non-root, read-only, drop-all caps)  
+Services:
+- ironcage-kernel: ws://localhost:3000/ws (MCTS engine)
+- ironcage-api: http://localhost:3001 (UI + metrics)
+
+Persistent Volumes:
+- models-pvc: 50 GB (model cache)
+- ledger-pvc: 10 GB (research ledger)
+
+**Pipeline:**
+1. Code → GitHub (`https://github.com/chidionyema/ironcage`)
+2. CI/CD: Tests + build (`cargo test --lib`, `cargo build --release`)
+3. Deploy: K3s via Flux reconciliation
+4. Verify: `kubectl get pods -n ironcage` → Ready status
+
+**Status:** Production ready. Deployed to Oracle Free Tier (2026-09-16).  
 **Next:** Ollama service + Restate integration + Benchmarking.

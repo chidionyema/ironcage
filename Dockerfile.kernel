@@ -1,0 +1,19 @@
+FROM rust:latest as builder
+WORKDIR /build
+COPY . .
+RUN cargo build --release
+
+FROM debian:bookworm-slim
+RUN apt-get update && apt-get install -y sqlite3 libssl3 ca-certificates && rm -rf /var/lib/apt/lists/*
+WORKDIR /app
+
+# Copy kernel binary from builder
+COPY --from=builder /build/target/release/ironcage-kernel /app/
+
+# Create data directory for ledger
+RUN mkdir -p /data && chmod 700 /data
+
+EXPOSE 3000
+
+USER 65532:65532
+ENTRYPOINT ["/app/ironcage-kernel"]
