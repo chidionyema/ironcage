@@ -47,16 +47,20 @@ jobs:
       - uses: Swatinem/rust-cache@v2
       - name: Build release
         run: cargo build --release
-      - name: Create release tarball
+      - name: Build OCI images
         run: |
-          mkdir -p release
-          cp target/release/ironcage-kernel release/
-          cp target/release/ironcage-api release/
-          tar czf ironcage-release.tar.gz release/
-          ls -lh ironcage-release.tar.gz
-      - name: Upload release artifacts
+          docker build -t ironcage-kernel:v0.1.0 -f Dockerfile.kernel .
+          docker build -t ironcage-api:v0.1.0 -f Dockerfile.api .
+          docker images | grep ironcage
+      - name: Save images as OCI archives
+        run: |
+          mkdir -p oci-images
+          docker save ironcage-kernel:v0.1.0 | gzip > oci-images/ironcage-kernel.tar.gz
+          docker save ironcage-api:v0.1.0 | gzip > oci-images/ironcage-api.tar.gz
+          ls -lh oci-images/
+      - name: Upload OCI image artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: ironcage-release
-          path: ironcage-release.tar.gz
+          name: ironcage-oci-images
+          path: oci-images/
           retention-days: 30
