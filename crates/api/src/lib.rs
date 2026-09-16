@@ -4,7 +4,7 @@ use axum::{
     http::StatusCode,
     response::Response,
     routing::{get, post},
-    Router, Json,
+    Json, Router,
 };
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
