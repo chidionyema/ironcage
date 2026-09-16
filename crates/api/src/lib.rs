@@ -3,13 +3,14 @@ use axum::{
     extract::ws::{Message, WebSocket, WebSocketUpgrade},
     http::StatusCode,
     response::Response,
-    routing::get,
-    Router,
+    routing::{get, post},
+    Router, Json,
 };
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 use tokio::sync::broadcast;
 use tower_http::cors::CorsLayer;
+use uuid::Uuid;
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct NodeDelta {
@@ -17,6 +18,21 @@ pub struct NodeDelta {
     pub visits: usize,
     pub reward: f64,
     pub verified: bool,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct ResearchClaim {
+    pub claim: String,
+    pub evidence: Option<String>,
+    pub domain: Option<String>,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct ResearchResult {
+    pub claim_id: String,
+    pub claim: String,
+    pub verified: bool,
+    pub evidence_score: f64,
 }
 
 pub struct ApiServer {
@@ -43,6 +59,7 @@ impl ApiServer {
                     async move { ws.on_upgrade(move |socket| handle_ws(socket, api)) }
                 }),
             )
+            .route("/research/claim", post(submit_claim))
             .route("/health", get(|| async { "ok" }))
             .route(
                 "/metrics",
@@ -61,6 +78,16 @@ impl ApiServer {
     pub fn tx(&self) -> &broadcast::Sender<NodeDelta> {
         &self.tx
     }
+}
+
+async fn submit_claim(Json(claim): Json<ResearchClaim>) -> Json<ResearchResult> {
+    let claim_id = format!("claim-{}", Uuid::new_v4());
+    Json(ResearchResult {
+        claim_id: claim_id.clone(),
+        claim: claim.claim,
+        verified: false,
+        evidence_score: 0.0,
+    })
 }
 
 async fn serve_ui() -> Result<Response, StatusCode> {
