@@ -260,5 +260,41 @@ Persistent Volumes:
 3. Deploy: K3s via Flux reconciliation
 4. Verify: `kubectl get pods -n ironcage` → Ready status
 
+## Research Workflow
+
+**Start research session:**
+
+```bash
+# 1. Port-forward API service
+kubectl port-forward -n ironcage svc/ironcage-api 3001:3001 &
+
+# 2. Open browser to Ironcage UI
+open http://localhost:3001
+
+# 3. Kernel MCTS is at ws://localhost:3000 (automatically connected)
+```
+
+**Backstage Integration:**
+
+Ironcage services are discovered via Kubernetes labels:
+- `backstage.io/kubernetes-id: ironcage-kernel` → MCTS research kernel
+- `backstage.io/kubernetes-id: ironcage-api` → Web UI + metrics endpoint
+
+Add to catalog:
+```yaml
+apiVersion: backstage.io/v1alpha1
+kind: Component
+metadata:
+  name: ironcage-research
+spec:
+  type: backend
+  owner: research-team
+  lifecycle: experimental
+  providesApis:
+    - ironcage-kernel
+    - ironcage-api
+```
+
 **Status:** Production ready. Deployed to Oracle Free Tier (2026-09-16).  
+**CI:** Container images building to ghcr.io (follow main branch).  
 **Next:** Ollama service + Restate integration + Benchmarking.
