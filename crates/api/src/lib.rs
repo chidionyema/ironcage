@@ -35,7 +35,7 @@ impl ApiServer {
         let api_clone2 = api.clone();
 
         Router::new()
-            .route("/", get(move || serve_ui()))
+            .route("/", get(serve_ui))
             .route(
                 "/ws",
                 get(move |ws: WebSocketUpgrade| {
@@ -48,12 +48,7 @@ impl ApiServer {
                 "/metrics",
                 get(move || {
                     let _api = api_clone2.clone();
-                    async move {
-                        format!(
-                            "# Ironcage Metrics\n\
-                         ironcage_api_version{{}} 1\n"
-                        )
-                    }
+                    async move { "# Ironcage Metrics\nironcage_api_version{} 1\n" }
                 }),
             )
             .layer(CorsLayer::permissive())
@@ -70,11 +65,11 @@ impl ApiServer {
 
 async fn serve_ui() -> Result<Response, StatusCode> {
     let html = include_str!("../../../ui/index.html");
-    Ok(Response::builder()
+    Response::builder()
         .status(StatusCode::OK)
         .header("Content-Type", "text/html")
         .body(Body::from(html))
-        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?)
+        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)
 }
 
 async fn handle_ws(mut socket: WebSocket, api: Arc<ApiServer>) {
