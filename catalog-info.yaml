@@ -1,0 +1,34 @@
+apiVersion: backstage.io/v1alpha1
+kind: Component
+metadata:
+  name: ironcage-kernel
+  title: Ironcage Research Kernel
+  description: Provable research engine with MCTS + formal verification
+  tags:
+    - rust
+    - research
+    - kernel
+    - mcts
+spec:
+  type: service
+  lifecycle: production
+  owner: research-team
+  system: sovereign
+---
+apiVersion: backstage.io/v1alpha1
+kind: Component
+metadata:
+  name: ironcage-api
+  title: Ironcage API
+  description: WebSocket API server for graph streaming
+  tags:
+    - rust
+    - axum
+    - websocket
+spec:
+  type: service
+  lifecycle: production
+  owner: research-team
+  system: sovereign
+  dependsOn:
+    - component:ironcage-kernel

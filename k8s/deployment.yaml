@@ -43,17 +43,34 @@ spec:
         app: ironcage-kernel
     spec:
       runtimeClassName: gvisor
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 65532
+        runAsGroup: 65532
+        seccompProfile:
+          type: RuntimeDefault
       containers:
       - name: kernel
-        image: ironcage-kernel:latest
-        imagePullPolicy: Never
+        image: ironcage-kernel:v0.1.0
+        imagePullPolicy: IfNotPresent
+        securityContext:
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: true
+          runAsNonRoot: true
+          runAsUser: 65532
+          runAsGroup: 65532
+          capabilities:
+            drop:
+              - ALL
+          seccompProfile:
+            type: RuntimeDefault
         resources:
           requests:
-            memory: "512Mi"
-            cpu: "800m"
+            memory: "256Mi"
+            cpu: "200m"
           limits:
-            memory: "1Gi"
-            cpu: "1"
+            memory: "512Mi"
+            cpu: "500m"
         ports:
         - containerPort: 3000
           name: mcts
@@ -62,6 +79,8 @@ spec:
           mountPath: /models
         - name: ledger
           mountPath: /data
+        - name: tmp
+          mountPath: /tmp
         env:
         - name: RUST_LOG
           value: "info"
@@ -84,12 +103,16 @@ spec:
       - name: ledger
         persistentVolumeClaim:
           claimName: ledger-pvc
+      - name: tmp
+        emptyDir: {}
 ---
 apiVersion: v1
 kind: Service
 metadata:
   name: ironcage-kernel
   namespace: ironcage
+  labels:
+    backstage.io/kubernetes-id: ironcage-kernel
 spec:
   type: ClusterIP
   ports:
@@ -114,20 +137,40 @@ spec:
       labels:
         app: ironcage-api
     spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 65532
+        runAsGroup: 65532
+        seccompProfile:
+          type: RuntimeDefault
       containers:
       - name: api
-        image: ironcage-api:latest
-        imagePullPolicy: Never
+        image: ironcage-api:v0.1.0
+        imagePullPolicy: IfNotPresent
+        securityContext:
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: true
+          runAsNonRoot: true
+          runAsUser: 65532
+          runAsGroup: 65532
+          capabilities:
+            drop:
+              - ALL
+          seccompProfile:
+            type: RuntimeDefault
         resources:
           requests:
-            memory: "256Mi"
-            cpu: "500m"
+            memory: "128Mi"
+            cpu: "100m"
           limits:
-            memory: "512Mi"
-            cpu: "1"
+            memory: "256Mi"
+            cpu: "250m"
         ports:
         - containerPort: 3001
           name: http
+        volumeMounts:
+        - name: tmp
+          mountPath: /tmp
         env:
         - name: RUST_LOG
           value: "info"
@@ -137,12 +180,17 @@ spec:
             port: 3001
           initialDelaySeconds: 5
           periodSeconds: 30
+      volumes:
+      - name: tmp
+        emptyDir: {}
 ---
 apiVersion: v1
 kind: Service
 metadata:
   name: ironcage-api
   namespace: ironcage
+  labels:
+    backstage.io/kubernetes-id: ironcage-api
 spec:
   type: ClusterIP
   ports:
