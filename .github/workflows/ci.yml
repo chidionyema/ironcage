@@ -5,6 +5,11 @@ on:
     branches: [main]
   pull_request:
     branches: [main]
+  # A run must be startable without inventing a commit. The estate's clusters pull by tag, so a
+  # push that fails to publish leaves them with nothing to fetch and no way to retry but an empty
+  # commit -- which is what happened on 2026-09-17, and the cluster sat on ImageInspectError for
+  # three and a half days.
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -51,8 +56,15 @@ jobs:
         run: cargo build --release
       - name: Build OCI images
         run: |
-          docker build -t ghcr.io/chidionyema/ironcage-kernel:${{ github.sha }} -f Dockerfile.kernel .
-          docker build -t ghcr.io/chidionyema/ironcage-api:${{ github.sha }} -f Dockerfile.api .
+          # TWO TAGS ON PURPOSE. The sha tag is the immutable record of what was built; `main` is
+          # the moving tag a cluster can pull without editing manifests on every commit. The
+          # Deployment asked for `v0.1.0`, which this workflow has never published, so the node
+          # spent three and a half days reporting ImageInspectError against an image that did not
+          # exist. A stable tag is what makes "the cluster runs main" true.
+          for IMG in ironcage-kernel:Dockerfile.kernel ironcage-api:Dockerfile.api; do
+            NAME="${IMG%%:*}"; FILE="${IMG##*:}"
+            docker build -t "ghcr.io/chidionyema/$NAME:${{ github.sha }}" -t "ghcr.io/chidionyema/$NAME:main" -f "$FILE" .
+          done
           docker images | grep ironcage
       - name: Login to GHCR
         uses: docker/login-action@v3
@@ -61,8 +73,13 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
       - name: Push to GHCR
-        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        # A DISPATCH MUST PUBLISH TOO. The guard was `event_name == 'push'`, so a manually started
+        # run built the images and threw them away -- the one route left open to a reader trying to
+        # recover a broken publish was the one route that could not.
+        if: github.ref == 'refs/heads/main'
         run: |
           docker push ghcr.io/chidionyema/ironcage-kernel:${{ github.sha }}
           docker push ghcr.io/chidionyema/ironcage-api:${{ github.sha }}
+          docker push ghcr.io/chidionyema/ironcage-kernel:main
+          docker push ghcr.io/chidionyema/ironcage-api:main
           echo "✅ Images pushed to ghcr.io with sha: ${{ github.sha }}"
