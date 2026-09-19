@@ -50,7 +50,11 @@ spec:
           type: RuntimeDefault
       containers:
       - name: kernel
-        image: ghcr.io/chidionyema/ironcage-kernel:latest
+        # `main`, NOT `latest`. The workflow publishes two tags: the immutable `:<sha>` and the
+        # moving `:main`. Nothing has ever published `:latest`, so this line asked for an image
+        # that does not exist and the node reported ImageInspectError against it for three and a
+        # half days. A manifest must name a tag the pipeline actually produces.
+        image: ghcr.io/chidionyema/ironcage-kernel:main
         imagePullPolicy: Always
         securityContext:
           allowPrivilegeEscalation: false
@@ -144,7 +148,8 @@ spec:
           type: RuntimeDefault
       containers:
       - name: api
-        image: ghcr.io/chidionyema/ironcage-api:latest
+        # `main`, matching the workflow. See the kernel above.
+        image: ghcr.io/chidionyema/ironcage-api:main
         imagePullPolicy: Always
         securityContext:
           allowPrivilegeEscalation: false
