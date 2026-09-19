@@ -46,7 +46,15 @@ jobs:
   publish:
     needs: build
     runs-on: ubuntu-latest
+    # A JOB-LEVEL `permissions:` BLOCK REPLACES THE WORKFLOW-LEVEL ONE, it does not merge with it.
+    #
+    # Measured 2026-09-19: this block listed only `packages: write`, so `contents: read` from the
+    # top of the file was dropped, and the push failed with
+    #     denied: permission_denied: write_package
+    # even after the repository's default workflow permission was changed to `write`. `contents:
+    # read` is what `actions/checkout` needs, and a token minted without it cannot create a package.
     permissions:
+      contents: read
       packages: write
     steps:
       - uses: actions/checkout@v4
